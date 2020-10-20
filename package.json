@@ -3,5 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "author": "HallexCosta <hallex.costa@hotmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^26.0.15",
+    "jest": "^26.6.0",
+    "ts-jest": "^26.4.1"
+  }
 }
