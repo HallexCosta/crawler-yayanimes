@@ -24,14 +24,31 @@ async function gettingAnime(page: Page, animesNames: string[]): Promise<Anime[]>
   const animes: Anime[] = []
 
   for (let index = 0; index < animesNames.length; index++) {
-    console.log('', '', '', `> ${index+1}) ${animesNames[index]}`)
-
     await page.goto(`${config.base_url}/${animesNames[index]}`, {
       timeout: 0,
       waitUntil: 'networkidle2'
     })
 
-    const anime: Anime = await page.evaluate(async function () {
+    const anime: Anime | undefined = await page.evaluate(async function () {
+      const verifyNotValidAnime = () => {  
+        const pageNotFound = (document.querySelector<HTMLHeadingElement>('h3')?.innerText)
+        const episodies = [...document.querySelectorAll('.contentBox ul li > div.box-episodio3')]
+
+        //Page not found
+        if (pageNotFound === 'PAGINA NÃO ENCONTRADA') {
+          console.log(`Error Message: ${pageNotFound}`);
+          return
+        }
+
+        // Episodies found
+        if (!(episodies.length > 0)) {
+          console.log('Episodies Amount: ', episodies.length)
+          return
+        }
+      }
+
+      verifyNotValidAnime()
+
       const title = document.querySelector('span.color-change') as HTMLSpanElement
       const image = document.querySelector('#capaAnime > img') as HTMLImageElement
       const about = document.querySelectorAll<HTMLTableRowElement>('table > tbody > tr')
@@ -59,7 +76,13 @@ async function gettingAnime(page: Page, animesNames: string[]): Promise<Anime[]>
       return animesDetail
     })
 
-    animes.push(anime)
+
+    if (anime) {
+      console.log('', '', '', `> ${index+1}) ${animesNames[index]} - Getting Successfully`)
+      animes.push(anime)
+    } else {
+      console.log('', '', '', `> ${index+1}) ${animesNames[index]} - Incomplete Episodies or Not Found`)
+    }
   }
 
   return animes
@@ -101,7 +124,7 @@ async function gettingAnimesRouteParam(page: Page): Promise<string[]> {
 
     // Getting Animes Data
     console.log('> Getting Animes Data')
-    const animes: Anime[] = await gettingAnime(page, normalize(['charlotte', 'darling-in-the-franxx']))
+    const animes: Anime[] = await gettingAnime(page, normalize(animesRouteParam))
     console.log()
     console.log('Animes', animes)
     console.log()
