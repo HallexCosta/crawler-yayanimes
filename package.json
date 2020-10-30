@@ -8,6 +8,7 @@
     "dev": "tsnd --transpile-only --respawn --ignore-watch node_modules src/index.ts"
   },
   "devDependencies": {
+    "@types/http-proxy": "^1.17.4",
     "@types/puppeteer": "^3.0.2",
     "ts-node-dev": "^1.0.0",
     "typescript": "^4.0.3"
