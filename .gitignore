@@ -6,3 +6,4 @@ dist
 yarn.lock
 package-lock.json
 src/__generated__/**/*.json
+src/__generated__/**/*.log
