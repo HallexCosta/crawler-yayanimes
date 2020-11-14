@@ -1,4 +1,4 @@
-import puppeteer, { Page } from 'puppeteer'
+import puppeteer, { Browser, Page } from 'puppeteer'
 
 import * as config from '../puppeteer.config'
 import { Utils } from './utils'
@@ -11,8 +11,26 @@ type Episodie = {
   quality_streaming: string
 }
 
-type Anime = Omit<AnimeTextData, 'episodies'> & {
-  episodies: (Episodie & Streaming)[]
+type Ova = {
+  title: string
+  thumbnail: string
+  quality_streaming: string
+}
+
+type StreamingVideoURL = {
+  episodies: string[],
+  ovas: string[]
+}
+
+type StreamingURL = {
+  url: string
+}
+
+type Anime = Omit<AnimeTextData, 'streamings'> & {
+  streamings: {
+    episodies: (Episodie & StreamingURL)[],
+    ovas: (Ova & StreamingURL)[]
+  }
 }
 
 type AnimeTextData = {
@@ -24,11 +42,12 @@ type AnimeTextData = {
   sinopse: string
   release_data: number
   rating: number
-  episodies: Episodie[]
+  streamings: Streaming
 }
 
 type Streaming = {
-  url: string
+  episodies: Episodie[],
+  ovas: Ova[]
 }
 
 type PackageLevelScope = {
@@ -37,8 +56,15 @@ type PackageLevelScope = {
 
 const PackageLevelScope: PackageLevelScope = {} as PackageLevelScope
 
-async function gettingAnimeTextData(page: Page): Promise<AnimeTextData> {
-  return await page.evaluate(async function () {
+async function gettingAnimeTextData(browser: Browser, anime: { goto_url: string }): Promise<AnimeTextData> {
+  const page = await browser.newPage()
+
+  await page.goto(anime.goto_url, {
+    timeout: 0,
+    waitUntil: 'networkidle2'
+  })
+
+  const animeTextData = await page.evaluate(async function () {
     const verifyNotValidAnime = () => {  
       const pageNotFound = (document.querySelector<HTMLHeadingElement>('h3')?.innerText)
       const episodies = [...document.querySelectorAll('.contentBox ul li > div.box-episodio3')]
@@ -63,7 +89,36 @@ async function gettingAnimeTextData(page: Page): Promise<AnimeTextData> {
     const about = document.querySelectorAll<HTMLTableRowElement>('table > tbody > tr')
     const sinopse = document.querySelectorAll('.single div')
     const rating = document.querySelector('#rmp-rating')
-    const episodies = [...document.querySelectorAll('.contentBox ul li > div.box-episodio3')]
+    const allEpisodies = [...document.querySelectorAll('.contentBox ul li > div.box-episodio3')]
+
+    const separateOvaOfEpisodie = (allEpisodies: Element[]) => {
+      const episodies: Episodie[] = []
+      const ovas: Ova[] = []
+
+      allEpisodies.forEach(episodieOrOva => {
+        const title = episodieOrOva.children[0].children[0].innerHTML.trim()
+        const thumbnail = episodieOrOva.children[0].children[1].children[0].attributes[0].nodeValue as string
+        const quality_streaming = episodieOrOva.children[0].children[1].children[1].textContent as string
+        
+        if (title.match(/(ova)/gi)) {
+          ovas.push({
+            title,
+            thumbnail,
+            quality_streaming
+          })
+        } else {
+          episodies.push({
+            title,
+            thumbnail,
+            quality_streaming
+          })
+        }
+      })
+      
+      return { episodies, ovas }
+    }
+
+    const streamings = separateOvaOfEpisodie(allEpisodies)
 
     const animeTextData = {
       name: title.innerHTML.trim(),
@@ -74,76 +129,119 @@ async function gettingAnimeTextData(page: Page): Promise<AnimeTextData> {
       release_data: Number(about[3].children[1].innerHTML.trim()),
       rating: Number(rating?.innerHTML.trim() as string),
       sinopse: sinopse[13].innerHTML.trim(),
-      episodies: episodies.map<Episodie>(episodie => ({
-        title: episodie.children[0].children[0].innerHTML.trim(),
-        thumbnail: episodie.children[0].children[1].children[0].attributes[0].nodeValue as string,
-        quality_streaming: episodie.children[0].children[1].children[1].textContent as string
-      }))
+      streamings: {
+        episodies: streamings.episodies,
+        ovas: streamings.ovas
+      }
     }
 
     console.log(`${animeTextData.name} - Detail`, animeTextData)
 
     return animeTextData
   })
+
+  await page.close()
+
+  return animeTextData
 }
 
-async function gettingStreamings(page: Page, anime: { name: string, data: AnimeTextData }): Promise<string[]> {
-  const streamings: string[] = []
+async function gettingStreamingsVideoURL(browser: Browser, anime: { name: string, data: AnimeTextData }): Promise<StreamingVideoURL> {
+  const streamings: StreamingVideoURL = {
+    episodies: [],
+    ovas: []
+  }
 
-  for (let streamingURLCount = 0; streamingURLCount < anime.data.episodies.length; streamingURLCount++) {
+  for (let streamingURLCount = 0; streamingURLCount < anime.data.streamings.episodies.length; streamingURLCount++) {
+    const page = await browser.newPage()
+
     console.log(`> Episodie - ${streamingURLCount+1}`)
 
     await page.goto(`${config.base_url}/${anime.name}-episodio-${String(streamingURLCount+1)}`, {
       timeout: 0,
-      waitUntil: 'load'
+      waitUntil: 'networkidle2'
     })
     
     // Getting Animes with Streamings URL
     const streaming: string = await page.evaluate(async function() {
       const streamingURL = document.querySelector('video') as HTMLVideoElement
-
       const streaming = streamingURL.src
-
       return streaming
     })
 
-    streamings.push(streaming)
+    streamings.episodies.push(streaming)
+
+    await page.close()
   }
 
-  return streamings
-}
+  for (let streamingURLCount = 0; streamingURLCount < anime.data.streamings.ovas.length; streamingURLCount++) {
+    const page = await browser.newPage()
+    
+    console.log(`> Ova - ${streamingURLCount+1}`)
 
-async function gettingAnime(page: Page, animesNames: string[]): Promise<Anime[]> {
-  const animes: Anime[] = []
-
-  for (let index = 0; index < animesNames.length; index++) {
-    await page.goto(`${config.base_url}/${animesNames[index]}`, {
+    await page.goto(`${config.base_url}/${anime.name}-ova-${String(streamingURLCount+1)}`, {
       timeout: 0,
       waitUntil: 'networkidle2'
     })
+    
+    // Getting Animes with Streamings URL
+    const streaming: string = await page.evaluate(async function() {
+      const streamingURL = document.querySelector('video') as HTMLVideoElement
+      const streaming = streamingURL.src
+      return streaming
+    })
+
+    streamings.ovas.push(streaming)
+    
+    console.log('Terminei de pegar o OVA', `${config.base_url}/${anime.name}-ova-${String(streamingURLCount+1)}`)
+
+    await page.close()
+  }
+  return streamings
+}
+
+async function gettingAnime(browser: Browser, animesNames: string[]): Promise<Anime[]> {
+  const animes: Anime[] = []
+
+  for (let index = 0; index < animesNames.length; index++) {
+    
+    console.log(`> ${index+1}) ${animesNames[index]} - Starting`)
 
     // Getting Anime Text Data
-    const animeTextData: AnimeTextData = await gettingAnimeTextData(page)
-
+    console.log('> Getting Text Data')
+    const animeTextData: AnimeTextData = await gettingAnimeTextData(browser, {
+      goto_url: `${config.base_url}/${animesNames[index]}`
+    })
 
     // Getting Streamings URL
     console.log('> Getting Streamings URL')
-    const streamings: string[] = await gettingStreamings(page, {
+    const streamings: StreamingVideoURL = await gettingStreamingsVideoURL(browser, {
       name: animesNames[index],
       data: animeTextData
     })    
-    
-    console.log('Streaming: ', streamings)
 
     const anime: Anime = {
       ...animeTextData,
-      episodies: animeTextData.episodies.map(({ title, thumbnail, quality_streaming }: Episodie, index) => ({
-        title,
-        thumbnail,
-        quality_streaming,
-        url: streamings[0],
-      }))
+      streamings: {
+        episodies: streamings.episodies.map((episodie_url, index) => {
+          return {
+            title: animeTextData.streamings.episodies[index].title,
+            thumbnail: animeTextData.streamings.episodies[index].thumbnail,
+            quality_streaming: animeTextData.streamings.episodies[index].quality_streaming,
+            url: episodie_url
+          }
+        }),
+        ovas: streamings.ovas.map((ova_url: string, index: number) => {
+          return {
+            title: animeTextData.streamings.ovas[index].title,
+            thumbnail: animeTextData.streamings.ovas[index].thumbnail,
+            quality_streaming: animeTextData.streamings.ovas[index].quality_streaming,
+            url: ova_url
+          }
+        })
+      }
     }
+
+    console.log(anime)
 
     if (anime) {
       console.log('', '', '', `> ${index+1}) ${animesNames[index]} - Getting Successfully`)
@@ -162,13 +260,15 @@ function normalize(animesNames: string[]) {
   return animesNames.map(animeName => animeName.trim().toLowerCase())
 }
 
-async function gettingAnimesRouteParam(page: Page): Promise<string[]> {
+async function gettingAnimesRouteParam(browser: Browser): Promise<string[]> {
+  const page = await browser.newPage()
+
   await page.goto(`${config.base_url}/lista-de-animes`, {
     timeout: 0,
     waitUntil: 'networkidle2'
   })
 
-  return await page.evaluate(function() {
+  const animesRouteParam = await page.evaluate(function() {
     const animesNamesAnchor: HTMLAnchorElement[] = [
       ...document
         .querySelectorAll<HTMLAnchorElement>('.aba ul > li > a')
@@ -179,37 +279,24 @@ async function gettingAnimesRouteParam(page: Page): Promise<string[]> {
 
     return animesParams
   })
+
+  await page.close()
+
+  return animesRouteParam
 }
 
 (async function () {
   try { 
-    // const wsChromiumEndpoinURL = 'ws://192.168.2.101:9222/devtools/browser/cacc3ec8-e2f7-4407-b2b7-ebe48534577d'
-
-    const customWSEndpoint = await createServer((await (puppeteer
-      .launch({
-        args: [
-          `--remote-debugging-port=9222`,
-          `--no-sandbox`,
-          `--disable-setuid-sandbox`,
-          `--ignore-certificate-errors`,
-          '--disable-gpu'
-        ]
-      }))).wsEndpoint(), host, port)
-
-    const browser = await puppeteer.connect({
-      browserWSEndpoint: customWSEndpoint
-    })
-
-    const page = await browser.newPage()
+    const browser = await puppeteer.launch(config.launch)
 
     //Getting Animes Routes
     console.log()
     console.log('> Getting Animes Routes')
-    const animesRouteParam = await gettingAnimesRouteParam(page)
+    const animesRouteParam = await gettingAnimesRouteParam(browser)
 
     // Getting Animes Data
     console.log('> Getting Animes Data')
-    const animes: Anime[] = await gettingAnime(page, normalize(['charlotte', 'darling-in-the-franxx']))
+    const animes: Anime[] = await gettingAnime(browser, normalize(['charlotte']))
     console.log()
     console.log('Animes', animes)
     console.log()
@@ -227,8 +314,7 @@ async function gettingAnimesRouteParam(page: Page): Promise<string[]> {
     console.log()
     console.log('> Finish Crawler Script!')
 
-    // await page.close()
-    // await browser.close()
+    await browser.close()
   } catch(e) {
     console.log(e)
   } 
