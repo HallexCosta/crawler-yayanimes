@@ -18,7 +18,7 @@ export class Utils {
 
     console.log(`> Save directory file: src/__generated__/${filename}.${ext}`)
 
-    fs.writeFile(path.join(__dirname, '../', '__generated__', `${filename}.${ext}`), JSON.stringify(data, null, 2), err => {
+    fs.writeFile(path.join(__dirname, '..', '..', '__generated__', `${filename}.${ext}`), JSON.stringify(data, null, 2), err => {
       if (err) throw new Error('something went wrong.')
       
       console.log(`> File ${filename}.${ext} was created successfully!`)
@@ -31,7 +31,7 @@ export class Utils {
 
     console.log(`> Save directory file: src/__generated__/${filename}.${ext}`)
 
-    fs.writeFile(path.join(__dirname, '../', '__generated__', `${filename}.${ext}`), contentText, err => {
+    fs.writeFile(path.join(__dirname, '..', '..', '__generated__', `${filename}.${ext}`), contentText, err => {
       if (err) throw new Error('something went wrong.')
       
       console.log(`> File ${filename}.${ext} was created successfully!`)
