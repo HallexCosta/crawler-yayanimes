@@ -1,10 +1,11 @@
+import path from 'path'
 import puppeteer, { Browser, Page } from 'puppeteer'
 
 import * as config from './config/puppeteer'
-import { Utils } from './common/utils'
 
-import { createServer, host, port } from './proxy'
-import { getCurrentDate, getCurrentTime } from "./common/utils/date"
+import { getCurrentDate, getCurrentTime } from './common/utils/date'
+import { EmptyFile, saveFile } from './common/utils/file'
+import { toUpperFirstCase } from "./common/utils/text"
  
 type Episodie = {
   title: string
@@ -55,7 +56,9 @@ type PackageLevelScope = {
   log: string
 }
 
-const PackageLevelScope: PackageLevelScope = {} as PackageLevelScope
+const PackageLevelScope: PackageLevelScope = {
+  log: ''
+}
 
 async function gettingAnimeTextData(browser: Browser, anime: { goto_url: string }): Promise<AnimeTextData> {
   const page = await browser.newPage()
@@ -193,8 +196,6 @@ async function gettingStreamingsVideoURL(browser: Browser, anime: { name: string
 
     streamings.ovas.push(streaming)
     
-    console.log('Terminei de pegar o OVA', `${config.base_url}/${anime.name}-ova-${String(streamingURLCount+1)}`)
-
     await page.close()
   }
   return streamings
@@ -244,59 +245,21 @@ async function gettingAnime(browser: Browser, animesNames: string[]): Promise<An
 
     console.log(anime)
 
-    // const monthsAbbreviation= [
-    //   'Jan',
-    //   'Feb',
-    //   'Mar',
-    //   'Apr',
-    //   'May',
-    //   'Jun',
-    //   'Jul',
-    //   'Aug',
-    //   'Sep',
-    //   'Oct',
-    //   'Nov',
-    //   'Dec'
-    // ]
-    // const monthsComplete= [
-    //   'January',
-    //   'February',
-    //   'March',
-    //   'April',
-    //   'May',
-    //   'June',
-    //   'July',
-    //   'August',
-    //   'September',
-    //   'October',
-    //   'November',
-    //   'December'
-    // ]
-
-    // const today = new Date()
-
-    // const currentMonth = monthsAbbreviation[today.getMonth()]
-    // const currentYear = today.getFullYear()
-    // const currentDate = today.getDate();
-
-    // const currentHours = today.getHours()
-    // const currentMinute = today.getMinutes()
-    // const currentSeconds = today.getSeconds()
-
-    // const date = `${currentYear}-${currentMonth}-${currentDate}`
-    // const time =  `${currentHours}:${currentMinute}:${currentSeconds}`
-
-    const date = getCurrentDate()
+    const date = getCurrentDate(false, true)
     const time = getCurrentTime()
 
+    const animeName = toUpperFirstCase(animesNames[index])
+
+    console.log('')
+
     if (anime) {
-      console.log(`[${date}] [${time}] ${animesNames[index]} - Getting Successfully`)
-      PackageLevelScope.log += `[${date}] [${time}] ${animesNames[index]} - Getting Successfully\n`
+      console.log(`[${date} ${time}] INFO  :...Anime ${animeName} - Getting Successfully`)
+      PackageLevelScope.log += `[${date} ${time}] INFO  :...Anime ${animeName} - Getting Successfully\n`
 
       animes.push(anime)
     } else {
-      PackageLevelScope.log += `[${date}] [${time}] ${animesNames[index]} - Episodies Not Found or Not Added\n`
-      console.log(`[${date}] [${time}] ${animesNames[index]} - Episodies Not Found or Not Added`)
+      PackageLevelScope.log += `[${date} ${time}] INFO  :...Anime ${animeName} - Episodies Not Found or Not Added\n`
+      console.log(`[${date} ${time}] INFO  :...Anime ${animeName} - Episodies Not Found or Not Added`)
     }
   }
 
@@ -348,15 +311,36 @@ async function gettingAnimesRouteParam(browser: Browser): Promise<string[]> {
     console.log('Animes', animes)
     console.log()
 
-    Utils.createJSONFile({
+    const databaseSaveConfig: EmptyFile = {
       filename: 'database',
-      data: animes
-    })
+      extension: 'json',
+      directorySave: '../../__generated__',
+      dataContent: animes,
+      isJSON: true
+    }
 
-    Utils.createLogFile({
+    const savedDatabaseFile = saveFile(databaseSaveConfig)
+    
+    if (savedDatabaseFile) {
+      console.log(`> File ${databaseSaveConfig.filename}.${databaseSaveConfig.extension} was created successfully on directory ${databaseSaveConfig.directorySave}`)
+    }
+
+    const logSaveConfig: EmptyFile = {
       filename: 'console',
-      contentText: PackageLevelScope.log
-    })
+      extension: 'log',
+      directorySave: '../../__generated__',
+      dataContent: PackageLevelScope.log,
+      isJSON: false
+    }
+
+    const savedLogFile = saveFile(logSaveConfig)
+    
+    if (savedLogFile) {
+      console.log(`> File ${logSaveConfig.filename}.${logSaveConfig.extension} was created successfully on directory ${logSaveConfig.directorySave}`)
+    }
+    
+    console.log()
+    console.log(`LOG: ${PackageLevelScope.log}`)
 
     console.log()
     console.log('> Finish Crawler Script!')
