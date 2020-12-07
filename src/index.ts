@@ -1,7 +1,7 @@
 import puppeteer, { Browser, Page } from 'puppeteer'
 
-import * as config from '../puppeteer.config'
-import { Utils } from './utils'
+import * as config from './config/puppeteer'
+import { Utils } from './common/utils'
 
 import { createServer, host, port } from './proxy'
  
