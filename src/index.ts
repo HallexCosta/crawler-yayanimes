@@ -4,6 +4,7 @@ import * as config from './config/puppeteer'
 import { Utils } from './common/utils'
 
 import { createServer, host, port } from './proxy'
+import { getCurrentDate, getCurrentTime } from "./common/utils/date"
  
 type Episodie = {
   title: string
@@ -243,13 +244,59 @@ async function gettingAnime(browser: Browser, animesNames: string[]): Promise<An
 
     console.log(anime)
 
+    // const monthsAbbreviation= [
+    //   'Jan',
+    //   'Feb',
+    //   'Mar',
+    //   'Apr',
+    //   'May',
+    //   'Jun',
+    //   'Jul',
+    //   'Aug',
+    //   'Sep',
+    //   'Oct',
+    //   'Nov',
+    //   'Dec'
+    // ]
+    // const monthsComplete= [
+    //   'January',
+    //   'February',
+    //   'March',
+    //   'April',
+    //   'May',
+    //   'June',
+    //   'July',
+    //   'August',
+    //   'September',
+    //   'October',
+    //   'November',
+    //   'December'
+    // ]
+
+    // const today = new Date()
+
+    // const currentMonth = monthsAbbreviation[today.getMonth()]
+    // const currentYear = today.getFullYear()
+    // const currentDate = today.getDate();
+
+    // const currentHours = today.getHours()
+    // const currentMinute = today.getMinutes()
+    // const currentSeconds = today.getSeconds()
+
+    // const date = `${currentYear}-${currentMonth}-${currentDate}`
+    // const time =  `${currentHours}:${currentMinute}:${currentSeconds}`
+
+    const date = getCurrentDate()
+    const time = getCurrentTime()
+
     if (anime) {
-      console.log('', '', '', `> ${index+1}) ${animesNames[index]} - Getting Successfully`)
-      PackageLevelScope.log += `    > ${index+1}) ${animesNames[index]} - Getting Successfully\n`
+      console.log(`[${date}] [${time}] ${animesNames[index]} - Getting Successfully`)
+      PackageLevelScope.log += `[${date}] [${time}] ${animesNames[index]} - Getting Successfully\n`
+
       animes.push(anime)
     } else {
-      PackageLevelScope.log += `    > ${index+1}) ${animesNames[index]} - Incomplete Episodies or Not Found\n`
-      console.log('', '', '', `> ${index+1}) ${animesNames[index]} - Incomplete Episodies or Not Found`)
+      PackageLevelScope.log += `[${date}] [${time}] ${animesNames[index]} - Episodies Not Found or Not Added\n`
+      console.log(`[${date}] [${time}] ${animesNames[index]} - Episodies Not Found or Not Added`)
     }
   }
 
