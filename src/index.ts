@@ -343,6 +343,7 @@ async function gettingAnimesRouteParam(browser: Browser): Promise<string[]> {
     console.log(`LOG: ${PackageLevelScope.log}`)
 
     console.log()
+    console.log(`Amount Animes: ${animesRouteParam.length}`)
     console.log('> Finish Crawler Script!')
 
     await browser.close()
