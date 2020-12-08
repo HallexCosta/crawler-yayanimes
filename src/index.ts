@@ -306,7 +306,8 @@ async function gettingAnimesRouteParam(browser: Browser): Promise<string[]> {
 
     // Getting Animes Data
     console.log('> Getting Animes Data')
-    const animes: Anime[] = await gettingAnime(browser, normalize(['charlotte']))
+    // const animes: Anime[] = await gettingAnime(browser, normalize(['charlotte']))
+    const animes: Anime[] = await gettingAnime(browser, normalize(animesRouteParam))
     console.log()
     console.log('Animes', animes)
     console.log()
